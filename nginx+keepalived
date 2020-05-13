@@ -1,0 +1,107 @@
+1.安装 nginx 镜像 docker pull nginx 
+  1.1 宿主机先安装 yum install epel-release -y
+  1.2 安装nginx yum install nginx  
+
+2.起动docker 容器 docker run -d --name nginxmast -p 80:80 nginx^C
+
+3.配置nginx      docker cp nginxmast:/etc/nginx/nginx.conf  /data/docker/nginx/conf （把容器里的配置文件nginx.conf 拷贝到本地目录 /data/docker/nginx/conf  反过来也可以用）
+
+   nginx.conf
+
+							events {
+						#使用epoll模型	
+					     use epoll;
+					    #单个进程允许的客户端最大连接数
+						worker_connections  1024;
+					 }
+
+
+					http {
+						include       /etc/nginx/mime.types;
+						default_type  application/octet-stream;
+
+						log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+										  '$status $body_bytes_sent "$http_referer" '
+										  '"$http_user_agent" "$http_x_forwarded_for"';
+
+						access_log  /var/log/nginx/access.log  main;
+
+						sendfile        on;
+						#tcp_nopush     on;
+
+						keepalive_timeout  65;
+
+						#gzip  on;
+						limit_conn_zone $binary_remote_addr zone=perip:10; # 添加limit_zone,限制同一ip并发数
+						include /etc/nginx/conf.d/*.conf;
+
+					   ustream backed {
+						 server 61.135.169.121:80 max_fails=1; #baidu.com
+						 server server   42.236.9.70:80 max_fails=1;  #so.com
+					   }
+
+					   server {
+							listen       80;
+							server_name  www.mtian.org;
+							location / {
+							proxy_pass http://backend;
+							proxy_set_header Host $host:$proxy_port;
+							proxy_set_header X-Forwarded-For $remote_addr;
+							}
+						}
+						
+	keepalived.conf
+
+						global_defs {
+
+			   router_id LVS_DEVEL01 # 标识，必须唯一
+
+			}
+			vrrp_script chk_nginx {
+					script "/etc/keepalived/nginx_check.sh"
+					interval 2
+					weight -20
+			}
+			vrrp_instance VI_1 {
+				state MASTER  #主备标 MASTER为主 BACKUP 为备
+				interface ens33  #用的网卡名字 可能ifconfig 查看
+				virtual_router_id 52 #虚拟路由id 主备要一样
+				priority 100 #邮箱级 主要的比备的数字大
+				advert_int 1
+				authentication {
+					auth_type PASS
+					auth_pass 1111
+				}
+				virtual_ipaddress {
+					192.168.61.136 #vip 可以放多个
+				}
+			}
+
+			}
+	
+						
+						
+4 安装keepalived   yum install keepalived						
+						
+			Keepalived
+
+			启动 
+			service keepalived start
+
+			停止 
+			service keepalived stop
+
+			重启 
+			service keepalived restart 
+	nginx 命令
+
+     nginx  #起动nginx
+
+     nginx -s reload #重起
+	 
+	 nginx -s stop # 停止
+
+    	 
+				
+
+

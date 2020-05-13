@@ -1,0 +1,68 @@
+1.安装docker 环境
+
+2.下载 mysql  docker pull mysql:5.7(版本号)；
+  下载 Canal镜像docker pull canal/canal-server：
+
+3.查看已存在的镜像 docker images
+
+4. 生成mysql容器 
+   docker run -d --name mysql --net mynetwork --ip 172.18.0.6 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql （mysql）
+   docker run -d --name canal-server --net mynetwork --ip 172.18.0.4 -p 11111:11111 canal/canal-server  (canal-server)
+     说明：
+			--net mynetwork #使用自定义网络
+			--ip   #指定分配ip
+			
+			
+5.进入MySQL容器docker exec -it mysql bash			
+			
+			
+6. 修改 mysql 容器的  vim /etc/mysql/mysql.conf.d/mysqld.cnf
+	[mysqld]
+     log-bin=mysql-bin # 开启binlog(binlog文件名字)
+     binlog-format=ROW # 选择ROW模式
+     server_id=1 # 配置MySQL replaction需要定义，不要和Canal的slaveId重复
+	 
+7.创建链接MySQL的账号Canal并授予作为MySQL slave的权限，如果已有账户可直接GRANT：
+    mysql -uroot -proot
+	# 创建账号
+	CREATE USER canal IDENTIFIED BY 'canal'; 
+	# 授予权限
+	GRANT SELECT, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'canal'@'%';
+	-- GRANT ALL PRIVILEGES ON *.* TO 'canal'@'%' ;
+	# 刷新并应用
+	FLUSH PRIVILEGES;	 
+	#查看修改是否生效
+	show variables like 'log_bin';
+	show master status;
+	
+8.进入canal-server容器docker exec -it canal-server bash。
+
+	#配置canal
+   vim canal-server/conf/example/instance.properties	
+   
+   #主要配置如下
+   canal.instance.mysql.slaveId=2 #模拟从库的id 不能为主库一样
+   
+   canal.instance.master.address=172.17.0.2:3306 #主库的地址 （注意：要是在一个docker 里要用container 里的pod内部地址否则不能连接主库）
+   
+   canal.instance.dbUsername=canal （主库授权的用户名）
+   
+   canal.instance.dbPassword=canal （主库授权的密码）
+   
+9.重启canal-server容器  docker restart canal-server 进入容器查看启动日志：
+    docker exec -it canal-server bash
+    tail -100f canal-server/logs/example/example.log 
+
+==============环境搭建完全成====================================	
+
+docker 操作
+
+$ systemctl daemon-reload 重新加载
+$ sudo service docker restart
+$ sudo service docker status (should see active (running))
+$ sudo docker run hello-world
+
+退出容器：sudo docker stop 容器id
+	 
+	
+			
