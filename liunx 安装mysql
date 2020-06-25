@@ -1,0 +1,141 @@
+二、  
+
+ 在你要放置安装包的目录下执行  
+
+wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-5.7.26-linux-glibc2.12-x86_64.tar.gz
+第二步：解压并移动
+首先说一下，移动不是必须的，但是我后面的配置里有指定文件目录，并且在Mac上安装mysql 默认也会放到 /usr/local ，所有最好按我的来。
+
+解压
+
+tar -xvf mysql-5.7.26-linux-glibc2.12-x86_64.tar.gz 
+移动
+
+mv mysql-5.7.26-linux-glibc2.12-x86_64 /usr/local/
+改名（改名和软连接，二选一）
+
+mv mysql-5.7.26-linux-glibc2.12-x86_64/ mysql-5.7.26
+想弄软连接命令 ： 
+
+ln -s mysql-5.7.26-linux-glibc2.12-x86_64/  mysql-5.7.26
+第三步：创建 用户，并给数据目录赋予权限
+创建mysql组和用户
+
+groupadd mysql
+useradd -r -g mysql mysql
+创建mysq数据目录
+
+回到根目录
+
+cd /
+mkdir -p data
+cd data/
+mkdir -p mysql
+赋予权限
+
+chown mysql:mysql -R /data/mysql
+第四步：配置参数
+
+执行
+
+vim /etc/my.cnf
+然后 按 i 进入编辑模式，把下面内容复制进去
+
+[mysqld]
+bind-address=0.0.0.0
+port=3306
+user=mysql
+basedir=/usr/local/mysql-5.7.26
+datadir=/data/mysql
+socket=/tmp/mysql.sock
+log-error=/data/mysql/mysql.err
+pid-file=/data/mysql/mysql.pid
+#character config
+character_set_server=utf8mb4
+symbolic-links=0
+编辑完后 按esc 后按住 shift+: 输入 wq表示保存并退出 。
+
+第五步：初始化mysql
+cd /usr/local/mysql-5.7.26/bin/
+ ./mysqld --initialize --user=mysql --basedir=/usr/local/mysql/mysql-5.7.26/ --datadir=/data/mysql/ --innodb_undo_tablespaces=3 --explicit_defaults_for_timestamp
+查看初始密码，复制出来
+
+vim /data/mysql/mysql.err
+
+第六步：启动mysql，并更改root 密码
+启动
+
+##service mysqld start
+1.chown 777 /tmp/
+2.find / -name mysql.server
+3./usr/local/mysql/mysql-5.7.26/support-files/mysql.server start
+查看是否启动
+
+ps -ef|grep mysql
+
+更改密码
+
+cd /usr/local/mysql-5.7.26/bin
+ mysql -u root -p
+提示输入密码，把刚才赋值的密码粘过来。root@localhost: Rwzo.5)8lsAf      root@localhost: ghC:t1jk=V0&
+
+
+然后执行修改，并刷新
+
+SET PASSWORD = PASSWORD('123456');
+
+ALTER USER 'root'@'localhost' PASSWORD EXPIRE NEVER;
+
+flush privileges;
+
+*********************************允许别的机器连接 **************************************************************************************
+                                                                                                                                       *
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '123456' WITH GRANT OPTION                                                     *
+                                                                                                                                       *
+****************************************开机启动******************************************************************                     *
+                                                                                                                 *                     *                 
+先将/usr/local/mysql/mysql/support-files/ 文件夹下的mysql.server文件复制到 /etc/rc.d/init.d/ 目录下mysqld        *                     *
+                                                                                                                 *                     *
+命令: cp /usr/local/mysql/mysql-5.7.26/support-files/mysql.server  /etc/rc.d/init.d/mysqld                       *                     *
+                                                                                                                 *                     *
+赋予可执行权限：chmod +x /etc/init.d/mysqld                                                                      *                     *
+                                                                                                                 *                     *
+添加为服务: chkconfig --add mysqld                                                                               *                     *
+                                                                                                                 *                     *
+查看服务列表:  chkconfig --list                                                                                  *                     *  
+                                                                                                                 *                     *
+看到3、4、5状态为开或者为 on 则表示成功。如果是 关或者 off 则执行一下：chkconfig --level 345 mysqld on           *                     *
+                                                                                                                 *                     *
+重启计算机:reboot                                                                                                *                     * 
+                                                                                                                 *                     *
+******************************************************************************************************************                     *
+                                                                                                                                       *
+****************************************************************************************************************************************                                                                                                                                       *
+
+
+
+
+
+到这里就结束了，如果想关闭mysql 执行 service mysqld stop
+
+注意事项：
+
+如果以上步骤有权限问题，可执行以下命令，还有把开启自起打开
+
+cp ./support-files/mysql.server /etc/init.d/mysqld
+
+chown 777 /etc/my.cnf 
+
+ chmod +x /etc/init.d/mysqld
+还有在安装前如果你的系统有Mariadb，就要卸载
+
+第一条命令用来查看，如果有就用下面的命令卸载
+
+rpm -qa|grep mariadb
+
+rpm -e --nodeps mariadb-libs-5.5.44-2.el7.centos.x86_64
+相关问题可以参考：https://www.cnblogs.com/dadadechengzi/p/6723686.html
+
+另外，如果5.7 安装的时候出现的东西没有解决可能应为你系统在安装前不是干净的，需要卸载残余mysql 文件。
+
+网上的解决方案也许对他来说是可以解决的，有些错误信息相同但是解决方法并不适用你，可能是其他因为影响的，具体情况还需具体分析。
